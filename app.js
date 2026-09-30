@@ -322,30 +322,39 @@ function kirimDataBesar(jsonStr, jenis) {
     jenis: jenis
   };
   
+  console.log("Mengirim POST dengan requestId:", requestId);
+  console.log("Payload size:", JSON.stringify(payload).length);
+  
+  // Pakai application/x-www-form-urlencoded agar Apps Script bisa parse
   fetch(GAS_URL, {
     method: 'POST',
     mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload)
   })
   .then(function() {
-    // Mulai polling
-    document.getElementById('loadingText').innerText = "Memproses data...";
+    console.log("POST terkirim (no-cors, tidak bisa lihat response)");
+    document.getElementById('loadingText').innerText = "Menunggu server memproses...";
+    
     var coba = 0;
-    var maxCoba = 30; // 30 × 2 detik = 60 detik
+    var maxCoba = 45; // 45 × 2 detik = 90 detik
     var interval = setInterval(function() {
       coba++;
+      console.log("Polling #" + coba + " dengan requestId:", requestId);
+      
       if (coba > maxCoba) {
         clearInterval(interval);
         hentikanLoading();
-        showToast("Server timeout. Coba lagi.", "error");
+        showToast("Server timeout setelah 90 detik. Coba lagi.", "error");
         return;
       }
       
-      callGAS('ambilHasil', { requestId: requestId }, 30000)
+      callGAS('ambilHasil', { requestId: requestId }, 25000)
         .then(function(hasil) {
+          console.log("Polling response:", hasil);
+          
           if (hasil && hasil.error && hasil.error.indexOf("belum siap") !== -1) {
             // masih proses, lanjut polling
+            document.getElementById('loadingText').innerText = "Memproses data... (" + coba + "/" + maxCoba + ")";
             return;
           }
           clearInterval(interval);
@@ -356,7 +365,6 @@ function kirimDataBesar(jsonStr, jenis) {
           tampilkanHasil(hasil);
         })
         .catch(function(err) {
-          // Kalau belum siap, jangan stop
           console.log("Polling error (retry):", err.message);
         });
       
