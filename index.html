@@ -1662,24 +1662,27 @@
           }
           
           var jsonStr = JSON.stringify(excelData);
-          if (jsonStr.length > 6000) {
-            hentikanLoading();
-            showToast("Data terlalu besar (" + jsonStr.length + " char). Maksimal ~6000.", "error");
-            return;
-          }
+          console.log("Ukuran data: " + jsonStr.length + " karakter, " + excelData.length + " baris");
           
-          callGAS('prosesVerifikasi', {
-            data: jsonStr,
-            jenis: jenisVal
-          })
-          .then(function(hasil) {
-            if (hasil && hasil.error) {
-              tampilkanErrorServer({ message: hasil.error });
-              return;
-            }
-            tampilkanHasil(hasil);
-          })
-          .catch(tampilkanErrorServer);
+          // Jika data kecil, pakai JSONP seperti biasa
+          if (jsonStr.length < 6000) {
+            callGAS('prosesVerifikasi', {
+              data: jsonStr,
+              jenis: jenisVal
+            })
+            .then(function(hasil) {
+              if (hasil && hasil.error) {
+                tampilkanErrorServer({ message: hasil.error });
+                return;
+              }
+              tampilkanHasil(hasil);
+            })
+            .catch(tampilkanErrorServer);
+            
+          } else {
+            // Data besar: pakai POST + polling
+            kirimDataBesar(jsonStr, jenisVal);
+          }
           
         } catch (err) {
           hentikanLoading();
@@ -1688,6 +1691,67 @@
       };
       
       reader.readAsArrayBuffer(file);
+    }
+    
+    // ============================================================
+    // KIRIM DATA BESAR via POST + POLLING
+    // ============================================================
+    function kirimDataBesar(jsonStr, jenis) {
+      var requestId = 'req_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      document.getElementById('loadingText').innerText = "Mengunggah data (" + jsonStr.length.toLocaleString() + " karakter)...";
+      
+      var payload = {
+        action: 'uploadData',
+        token: SECRET_TOKEN,
+        requestId: requestId,
+        data: jsonStr,
+        jenis: jenis
+      };
+      
+      fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      })
+      .then(function() {
+        // Mulai polling
+        document.getElementById('loadingText').innerText = "Memproses data...";
+        var coba = 0;
+        var maxCoba = 30; // 30 × 2 detik = 60 detik
+        var interval = setInterval(function() {
+          coba++;
+          if (coba > maxCoba) {
+            clearInterval(interval);
+            hentikanLoading();
+            showToast("Server timeout. Coba lagi.", "error");
+            return;
+          }
+          
+          callGAS('ambilHasil', { requestId: requestId }, 30000)
+            .then(function(hasil) {
+              if (hasil && hasil.error && hasil.error.indexOf("belum siap") !== -1) {
+                // masih proses, lanjut polling
+                return;
+              }
+              clearInterval(interval);
+              if (hasil && hasil.error) {
+                tampilkanErrorServer({ message: hasil.error });
+                return;
+              }
+              tampilkanHasil(hasil);
+            })
+            .catch(function(err) {
+              // Kalau belum siap, jangan stop
+              console.log("Polling error (retry):", err.message);
+            });
+          
+        }, 2000);
+      })
+      .catch(function(err) {
+        hentikanLoading();
+        showToast("Gagal kirim data: " + err.message, "error");
+      });
     }
 
     function tampilkanErrorServer(error) {
