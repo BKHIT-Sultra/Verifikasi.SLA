@@ -1,7 +1,7 @@
 // ============================================================
 // KONFIGURASI
 // ============================================================
-var GAS_URL = "https://script.google.com/macros/s/AKfycbw3wNHjtwaRL4Cr0IC5GRpN9RvIaQClGLGODhWrHmJxJjQIFrFMvYKoOIxoxVi1dQ-F/exec";
+var GAS_URL = "https://script.google.com/macros/s/AKfycbx8PPCFWEQalJ9Lfzt3UVCCjHIZThPf0hi4bQZctN1G61Ikl_iPiqInGZS6iF7TAmlr/exec";
 var SECRET_TOKEN = "bkhit-sultra-sla-2024-v3r1f1k4s1";
 var PASSWORD_SISTEM = "adminbkhit";
 
